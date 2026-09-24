@@ -1,0 +1,14 @@
+[Unit]
+Description=VM Security Dashboard
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/vm-dashboard
+ExecStart=/opt/vm-dashboard/venv/bin/python app.py
+Restart=always
+RestartSec=5
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Security Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0e1a;
+            font-family: 'Segoe UI', monospace;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: #111827;
+            border-bottom: 1px solid #1e3a5f;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header h1 {
+            font-size: 18px;
+            color: #4fa3ff;
+            letter-spacing: 1px;
+        }
+        .header p {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #064e3b;
+            border: 1px solid #065f46;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #10b981;
+        }
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .logout-btn {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #9ca3af;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover { border-color: #ef4444; color: #ef4444; }
+
+        /* NAV TABS */
+        .nav-tabs {
+            background: #111827;
+            border-bottom: 1px solid #1f2937;
+            padding: 0 24px;
+            display: flex;
+            gap: 4px;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            padding: 12px 18px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #e0e0e0; }
+        .tab-btn.active {
+            color: #4fa3ff;
+            border-bottom-color: #4fa3ff;
+        }
+
+        /* MAIN CONTENT */
+        .content {
+            padding: 24px;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* STAT CARDS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 10px;
+            padding: 20px;
+            transition: border-color 0.2s;
+        }
+        .stat-card:hover { border-color: #374151; }
+        .stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #4fa3ff;
+        }
+        .stat-sub {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .progress-bar {
+            height: 4px;
+            background: #1f2937;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        .progress-fill.green { background: #10b981; }
+        .progress-fill.yellow { background: #f59e0b; }
+        .progress-fill.red { background: #ef4444; }
+
+        /* GRID LAYOUT */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 900px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+        }
+
+        /* PANELS */
+        .panel {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .panel-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-body {
+            padding: 16px;
+        }
+
+        /* LOG BOX */
+        .log-box {
+            background: #0d1117;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #a3e635;
+            height: 350px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-box.error-log { color: #fca5a5; }
+        .log-box.system-log { color: #67e8f9; }
+
+        /* REFRESH BTN */
+        .refresh-btn {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: #9ca3af;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .refresh-btn:hover { border-color: #4fa3ff; color: #4fa3ff; }
+
+        /* SERVICE STATUS */
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+        }
+        .service-item {
+            background: #0d1117;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .service-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .service-dot.active { background: #10b981; }
+        .service-dot.inactive { background: #ef4444; }
+        .service-dot.unknown { background: #f59e0b; }
+        .service-name { font-size: 13px; color: #e0e0e0; }
+        .service-status { font-size: 11px; color: #6b7280; }
+
+        /* ATTACK TABLE */
+        .attack-count {
+            background: #7f1d1d;
+            border: 1px solid #991b1b;
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .attack-count .num {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fca5a5;
+        }
+        .attack-count .label { font-size: 13px; color: #fca5a5; }
+
+        /* TERMINAL */
+        .terminal {
+            background: #0d1117;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .terminal-bar {
+            background: #1f2937;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .terminal-output {
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #a3e635;
+            height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .terminal-input-row {
+            display: flex;
+            align-items: center;
+            border-top: 1px solid #1f2937;
+            padding: 10px 14px;
+            gap: 10px;
+        }
+        .terminal-prompt { color: #10b981; font-size: 13px; font-family: monospace; }
+        .terminal-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            outline: none;
+        }
+        .terminal-run {
+            background: #1d4ed8;
+            border: none;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .terminal-run:hover { background: #2563eb; }
+
+        /* BADGE */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: #064e3b; color: #10b981; }
+        .badge-red { background: #7f1d1d; color: #fca5a5; }
+        .badge-yellow { background: #78350f; color: #fbbf24; }
+        .badge-blue { background: #1e3a5f; color: #4fa3ff; }
+
+        /* SECTION TITLE */
+        .section-title {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+        .section-title:first-child { margin-top: 0; }
+
+        /* PORTS TABLE */
+        .ports-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .ports-table th {
+            text-align: left;
+            padding: 8px 12px;
+            color: #6b7280;
+            border-bottom: 1px solid #1f2937;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .ports-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #0d1117;
+            color: #e0e0e0;
+        }
+        .ports-table tr:hover td { background: #1f2937; }
+
+        /* LIVE LOG */
+        .live-log-box {
+            background: #0d1117;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.7;
+            color: #67e8f9;
+            height: 500px;
+            overflow-y: auto;
+        }
+        .live-log-line { display: block; border-bottom: 1px solid #0a0e1a; padding: 1px 0; }
+        .live-log-line:hover { background: #1f2937; }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        <span style="font-size:24px">🛡️</span>
+        <div>
+            <h1>VM Security Dashboard</h1>
+            <p id="server-info">VM Security Server</p>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="live-badge">
+            <div class="dot"></div>
+            LIVE
+        </div>
+        <span id="clock" style="font-size:13px;color:#6b7280"></span>
+        <a href="/logout" class="logout-btn">🚪 Logout</a>
+    </div>
+</div>
+
+<!-- NAV TABS -->
+<div class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('overview')">📊 Overview</button>
+    <button class="tab-btn" onclick="showTab('logs')">📋 Logs</button>
+    <button class="tab-btn" onclick="showTab('attacks')">⚔️ Attack Monitor</button>
+    <button class="tab-btn" onclick="showTab('services')">⚙️ Services</button>
+    <button class="tab-btn" onclick="showTab('network')">🌐 Network</button>
+    <button class="tab-btn" onclick="showTab('terminal')">💻 Terminal</button>
+    <button class="tab-btn" onclick="showTab('live')">📡 Live Stream</button>
+</div>
+
+<div class="content">
+
+    <!-- OVERVIEW TAB -->
+    <div id="tab-overview" class="tab-panel active">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">🖥️ CPU Usage</div>
+                <div class="stat-value" id="cpu-val">—</div>
+                <div class="stat-sub">%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill green" id="cpu-bar" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🧠 RAM Usage</div>
+                <div class="stat-value" id="ram-val">—</div>
+                <div class="stat-sub" id="ram-sub">GB used</div>
+                <div class="progress-bar">
+                    <div class="progress-fill yellow" id="ram-bar" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">💾 Disk Usage</div>
+                <div class="stat-value" id="disk-val">—</div>
+                <div class="stat-sub" id="disk-sub">GB used</div>
+                <div class="progress-bar">
+                    <div class="progress-fill red" id="disk-bar" style="width:0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📤 Network Sent</div>
+                <div class="stat-value" id="net-sent">—</div>
+                <div class="stat-sub">MB total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📥 Network Recv</div>
+                <div class="stat-value" id="net-recv">—</div>
+                <div class="stat-sub">MB total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Uptime</div>
+                <div class="stat-value" id="uptime" style="font-size:18px">—</div>
+                <div class="stat-sub" id="boot-time">—</div>
+            </div>
+        </div>
+
+        <!-- Top Processes -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">🔄 Top Processes</div>
+                <button class="refresh-btn" onclick="loadProcesses()">↻ Refresh</button>
+            </div>
+            <div class="panel-body">
+                <table class="ports-table" id="proc-table">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Name</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="proc-tbody">
+                        <tr><td colspan="5" style="color:#6b7280;text-align:center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGS TAB -->
+    <div id="tab-logs" class="tab-panel">
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">📋 System Journal</div>
+                    <button class="refresh-btn" onclick="loadLog('system')">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box system-log" id="log-system">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">📹 MediaMTX Logs</div>
+                    <button class="refresh-btn" onclick="loadLog('mediamtx')">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box" id="log-mediamtx">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🔥 UFW Firewall Log</div>
+                    <button class="refresh-btn" onclick="loadLog('ufw')">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box error-log" id="log-ufw">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🔐 Auth Log</div>
+                    <button class="refresh-btn" onclick="loadLog('auth')">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box error-log" id="log-auth">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ATTACKS TAB -->
+    <div id="tab-attacks" class="tab-panel">
+        <div class="section-title">⚔️ Threat Intelligence</div>
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🚫 Failed SSH Attempts</div>
+                    <button class="refresh-btn" onclick="loadAttacks()">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box error-log" id="ssh-fails">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">📊 Brute Force IPs (Top Attackers)</div>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box" id="brute-force">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🔥 UFW Blocked Connections</div>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box error-log" id="ufw-blocks">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">✅ Successful Logins</div>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box" style="color:#10b981" id="success-logins">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICES TAB -->
+    <div id="tab-services" class="tab-panel">
+        <div class="section-title">⚙️ Service Status</div>
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">🔧 Running Services</div>
+                <button class="refresh-btn" onclick="loadServices()">↻ Refresh</button>
+            </div>
+            <div class="panel-body">
+                <div class="service-grid" id="service-grid">Loading...</div>
+            </div>
+        </div>
+        <div class="section-title">🔒 UFW Firewall Rules</div>
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">🛡️ Firewall Status</div>
+                <button class="refresh-btn" onclick="loadUFW()">↻ Refresh</button>
+            </div>
+            <div class="panel-body">
+                <div class="log-box" id="ufw-status">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NETWORK TAB -->
+    <div id="tab-network" class="tab-panel">
+        <div class="grid-2">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🌐 Open Ports</div>
+                    <button class="refresh-btn" onclick="loadPorts()">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box system-log" id="open-ports">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">🔗 Active Connections</div>
+                    <button class="refresh-btn" onclick="loadConnections()">↻ Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div class="log-box" id="connections">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TERMINAL TAB -->
+    <div id="tab-terminal" class="tab-panel">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">💻 Secure Terminal</div>
+                <span class="badge badge-yellow">⚠️ Safe commands only</span>
+            </div>
+            <div class="panel-body" style="padding:0">
+                <div class="terminal">
+                    <div class="terminal-bar">
+                        <div class="terminal-dot" style="background:#ef4444"></div>
+                        <div class="terminal-dot" style="background:#f59e0b"></div>
+                        <div class="terminal-dot" style="background:#10b981"></div>
+                        <span style="font-size:12px;color:#6b7280;margin-left:8px">root@server</span>
+                    </div>
+                    <div class="terminal-output" id="term-output">Welcome to VM Dashboard Terminal
+Allowed commands: ls, ps, df, free, uptime, who, tail, grep, systemctl status, journalctl, ufw status, ss, ip, ping, curl ifconfig.me, date, hostname
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+</div>
+                    <div class="terminal-input-row">
+                        <span class="terminal-prompt">root@vm:~$</span>
+                        <input type="text" class="terminal-input" id="term-input" placeholder="Type command..." onkeydown="if(event.key==='Enter') runCommand()">
+                        <button class="terminal-run" onclick="runCommand()">▶ Run</button>
+                        <button class="terminal-run" style="background:#374151" onclick="clearTerminal()">✕ Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Commands -->
+        <div class="section-title">⚡ Quick Commands</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="refresh-btn" onclick="quickCmd('curl ifconfig.me')">🌐 Public IP</button>
+            <button class="refresh-btn" onclick="quickCmd('uptime')">⏱️ Uptime</button>
+            <button class="refresh-btn" onclick="quickCmd('df -h')">💾 Disk</button>
+            <button class="refresh-btn" onclick="quickCmd('free -h')">🧠 Memory</button>
+            <button class="refresh-btn" onclick="quickCmd('ss -tlnp')">🔌 Open Ports</button>
+            <button class="refresh-btn" onclick="quickCmd('sudo systemctl status mediamtx')">📹 MediaMTX</button>
+            <button class="refresh-btn" onclick="quickCmd('sudo ufw status verbose')">🛡️ UFW</button>
+            <button class="refresh-btn" onclick="quickCmd('who')">👤 Who</button>
+            <button class="refresh-btn" onclick="quickCmd('ps aux --sort=-%cpu | head -10')">🔄 Processes</button>
+            <button class="refresh-btn" onclick="quickCmd('sudo journalctl -n 20 --no-pager')">📋 Journal</button>
+            <button class="refresh-btn" onclick="quickCmd('ip addr show')">🌐 IP Addr</button>
+            <button class="refresh-btn" onclick="quickCmd('hostname')">🖥️ Hostname</button>
+        </div>
+    </div>
+
+    <!-- LIVE STREAM TAB -->
+    <div id="tab-live" class="tab-panel">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">📡 Live System Log Stream</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <div class="live-badge" id="stream-badge">
+                        <div class="dot"></div>
+                        STREAMING
+                    </div>
+                    <button class="refresh-btn" onclick="toggleStream()">⏸ Pause</button>
+                    <button class="refresh-btn" onclick="clearLive()">✕ Clear</button>
+                </div>
+            </div>
+            <div class="panel-body" style="padding:0">
+                <div class="live-log-box" id="live-log"></div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /content -->
+
+<script>
+// ── CLOCK ──
+function updateClock() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── TABS ──
+function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+    if (name === 'logs') { loadLog('system'); loadLog('mediamtx'); loadLog('ufw'); loadLog('auth'); }
+    if (name === 'attacks') loadAttacks();
+    if (name === 'services') { loadServices(); loadUFW(); }
+    if (name === 'network') { loadPorts(); loadConnections(); }
+}
+
+// ── STATS ──
+async function loadStats() {
+    try {
+        const r = await fetch('/api/stats');
+        const d = await r.json();
+        document.getElementById('cpu-val').textContent = d.cpu + '%';
+        document.getElementById('cpu-bar').style.width = d.cpu + '%';
+        document.getElementById('cpu-bar').className = 'progress-fill ' + (d.cpu > 80 ? 'red' : d.cpu > 50 ? 'yellow' : 'green');
+        document.getElementById('ram-val').textContent = d.ram_percent + '%';
+        document.getElementById('ram-sub').textContent = d.ram_used + ' / ' + d.ram_total + ' GB';
+        document.getElementById('ram-bar').style.width = d.ram_percent + '%';
+        document.getElementById('ram-bar').className = 'progress-fill ' + (d.ram_percent > 80 ? 'red' : d.ram_percent > 60 ? 'yellow' : 'green');
+        document.getElementById('disk-val').textContent = d.disk_percent + '%';
+        document.getElementById('disk-sub').textContent = d.disk_used + ' / ' + d.disk_total + ' GB';
+        document.getElementById('disk-bar').style.width = d.disk_percent + '%';
+        document.getElementById('disk-bar').className = 'progress-fill ' + (d.disk_percent > 85 ? 'red' : d.disk_percent > 65 ? 'yellow' : 'green');
+        document.getElementById('net-sent').textContent = d.net_sent;
+        document.getElementById('net-recv').textContent = d.net_recv;
+        document.getElementById('uptime').textContent = d.uptime;
+        document.getElementById('boot-time').textContent = 'Since ' + d.boot_time;
+    } catch(e) {}
+}
+
+// ── PROCESSES ──
+async function loadProcesses() {
+    const r = await fetch('/api/processes');
+    const procs = await r.json();
+    const tbody = document.getElementById('proc-tbody');
+    tbody.innerHTML = procs.map(p => `
+        <tr>
+            <td><span class="badge badge-blue">${p.pid}</span></td>
+            <td>${p.name}</td>
+            <td>${(p.cpu_percent||0).toFixed(1)}%</td>
+            <td>${(p.memory_percent||0).toFixed(1)}%</td>
+            <td><span class="badge ${p.status==='running'?'badge-green':'badge-yellow'}">${p.status}</span></td>
+        </tr>
+    `).join('');
+}
+
+// ── LOGS ──
+async function loadLog(type) {
+    const el = document.getElementById('log-' + type);
+    if (!el) return;
+    el.textContent = 'Loading...';
+    const r = await fetch('/api/logs/' + type);
+    const d = await r.json();
+    el.textContent = d.logs || d.status || 'No data';
+    el.scrollTop = el.scrollHeight;
+}
+
+// ── ATTACKS ──
+async function loadAttacks() {
+    const r = await fetch('/api/attacks');
+    const d = await r.json();
+    document.getElementById('ssh-fails').textContent = d.ssh_failures || 'No failures found';
+    document.getElementById('brute-force').textContent = d.brute_force_ips || 'No brute force detected';
+    document.getElementById('ufw-blocks').textContent = d.ufw_blocks || 'No blocks found';
+    document.getElementById('success-logins').textContent = d.successful_logins || 'No logins found';
+}
+
+// ── SERVICES ──
+async function loadServices() {
+    const r = await fetch('/api/services');
+    const d = await r.json();
+    const icons = {mediamtx:'📹', ssh:'🔐', ufw:'🛡️', apache2:'🌐', fail2ban:'🚫', 'redis-server':'💾', postgresql:'🗄️'};
+    document.getElementById('service-grid').innerHTML = Object.entries(d).map(([name, status]) => `
+        <div class="service-item">
+            <div class="service-dot ${status==='active'?'active':status==='inactive'?'inactive':'unknown'}"></div>
+            <div>
+                <div class="service-name">${icons[name]||'⚙️'} ${name}</div>
+                <div class="service-status">${status}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ── UFW ──
+async function loadUFW() {
+    const r = await fetch('/api/ufw');
+    const d = await r.json();
+    document.getElementById('ufw-status').textContent = d.status;
+}
+
+// ── PORTS ──
+async function loadPorts() {
+    const r = await fetch('/api/ports');
+    const d = await r.json();
+    document.getElementById('open-ports').textContent = d.ports;
+}
+
+// ── CONNECTIONS ──
+async function loadConnections() {
+    const r = await fetch('/api/connections');
+    const d = await r.json();
+    document.getElementById('connections').textContent = d.connections;
+}
+
+// ── TERMINAL ──
+async function runCommand() {
+    const input = document.getElementById('term-input');
+    const output = document.getElementById('term-output');
+    const cmd = input.value.trim();
+    if (!cmd) return;
+    output.textContent += '\nroot@vm:~$ ' + cmd + '\n';
+    input.value = '';
+    try {
+        const r = await fetch('/api/exec', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({command: cmd})
+        });
+        const d = await r.json();
+        output.textContent += d.output + '\n';
+    } catch(e) {
+        output.textContent += 'Error: ' + e + '\n';
+    }
+    output.scrollTop = output.scrollHeight;
+}
+
+function quickCmd(cmd) {
+    document.getElementById('term-input').value = cmd;
+    // Switch to terminal tab
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-terminal').classList.add('active');
+    document.querySelectorAll('.tab-btn')[5].classList.add('active');
+    runCommand();
+}
+
+function clearTerminal() {
+    document.getElementById('term-output').textContent = 'Terminal cleared.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+}
+
+// ── LIVE LOG STREAM ──
+let evtSource = null;
+let streamPaused = false;
+
+function startStream() {
+    const liveLog = document.getElementById('live-log');
+    evtSource = new EventSource('/api/stream/logs');
+    evtSource.onmessage = function(e) {
+        if (streamPaused) return;
+        const line = document.createElement('span');
+        line.className = 'live-log-line';
+        line.textContent = e.data;
+        liveLog.appendChild(line);
+        // Keep max 500 lines
+        while (liveLog.children.length > 500) liveLog.removeChild(liveLog.firstChild);
+        liveLog.scrollTop = liveLog.scrollHeight;
+    };
+}
+
+function toggleStream() {
+    streamPaused = !streamPaused;
+    document.querySelector('[onclick="toggleStream()"]').textContent = streamPaused ? '▶ Resume' : '⏸ Pause';
+}
+
+function clearLive() {
+    document.getElementById('live-log').innerHTML = '';
+}
+
+// ── INIT ──
+loadStats();
+loadProcesses();
+startStream();
+setInterval(loadStats, 5000);
+setInterval(loadProcesses, 10000);
+</script>
+</body>
+</html>
